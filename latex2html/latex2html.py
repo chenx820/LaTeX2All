@@ -34,6 +34,8 @@ class Latex2Html:
             'maketitle',
             'centering',
             'hline',
+            'newpage',
+            'tableofcontents',
         ]
 
     def convert(self, latex_content):
