@@ -78,13 +78,11 @@ class Latex2Html:
         self.cleanup()
         
     def process_inline_math(self):
-        """ 处理行内公式 \( ... \) 和 $ ... $ """
         self.text = re.sub(r'\\\((.*?)\\\)', r'<span class="math">\\(\1\\)</span>', self.text)
         self.text = re.sub(r'\$(.*?)\$', r'<span class="math">\\(\1\\)</span>', self.text)
 
 
     def process_block_math(self):
-        """ 处理块级公式 \[ ... \] 和 $$ ... $$ """
         self.text = re.sub(r'\\\[(.*?)\\\]', r'<div class="math">\\[\1\\]</div>', self.text, flags=re.DOTALL)
         self.text = re.sub(r'\$\$(.*?)\$\$', r'<div class="math">\\[\1\\]</div>', self.text, flags=re.DOTALL)
 
