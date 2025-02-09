@@ -45,8 +45,7 @@ class Latex2Html:
         self.protect_equations()
         self.parse_latex()
         self.restore_equations()
-        self.process_inline_math()
-        self.process_block_math()
+        self.process_math()
         return self.text
 
     def parse_latex(self):
@@ -80,12 +79,9 @@ class Latex2Html:
         self.replace_special_chars()
         self.cleanup()
         
-    def process_inline_math(self):
+    def process_math(self):
         self.text = re.sub(r'\\\((.*?)\\\)', r'<span class="math">\\(\1\\)</span>', self.text)
         self.text = re.sub(r'\$(.*?)\$', r'<span class="math">\\(\1\\)</span>', self.text)
-
-
-    def process_block_math(self):
         self.text = re.sub(r'\\\[(.*?)\\\]', r'<div class="math">\\[\1\\]</div>', self.text, flags=re.DOTALL)
         self.text = re.sub(r'\$\$(.*?)\$\$', r'<div class="math">\\[\1\\]</div>', self.text, flags=re.DOTALL)
 
