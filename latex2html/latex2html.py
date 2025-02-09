@@ -1,15 +1,17 @@
 import re
 import html
+from parser.author import AuthorParser
 
 
 class Latex2Html:
     def __init__(self):
+        self.title = ''
         self.text = ''
         self.protected_equations = {}
         self.script = """
     <script type='text/javascript' async src='https://polyfill.io/v3/polyfill.min.js?features=es6'></script>
     <script type='text/javascript' id='MathJax-script' async src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'></script>"""
-        
+        self.author_parser = AuthorParser()
         self.command_handlers = {
             'textbf': self.handle_bold,
             'textit': self.handle_italic,
@@ -40,12 +42,37 @@ class Latex2Html:
 
     def convert(self, latex_content):
         self.text = latex_content
+        self.process_title()
         self.process_comments()
         self.protect_equations()
         self.parse_latex()
         self.restore_equations()
         self.process_math()
         return self.text
+    
+    def process_authors(self):
+        authors_html = []
+        authors, date = self.author_parser.finalize()
+        
+        for author in authors:
+            affils = [f'<i class="affiliation"><small>{a}</small></i>' 
+                     for a in author['affils']]
+            affils_html = '<br />\n'.join(affils)
+            authors_html.append(f"""
+  <div class="author">
+    <strong>{author['name']}</strong><br />
+    {affils_html}
+  </div>""")
+        
+        date_html = f'<div class="date"><small>{date}</small></div>' if date else ''
+        authors_str = '\n'.join(authors_html)
+        return f"""
+    <div class="author-list">
+      {authors_str}
+    </div>
+    {date_html}"""
+
+
 
     def parse_latex(self):
         document_match = re.search(r'\\begin{document}(.*)\\end{document}', self.text, flags=re.DOTALL)
@@ -58,13 +85,33 @@ class Latex2Html:
         self.text = f"""<!DOCTYPE html>
 <html>
   <head>
-    <title>Converted Document</title>
+    <title>{self.title}</title>
     {self.script}
   </head>
 <body>
 {self.text}
 </body>
 </html>"""
+
+    def process_title(self):
+        title_match = re.search(r'\\title{(.*)}', self.text)
+        if title_match:
+            self.title = title_match.group(1).strip()
+            self.text = re.sub(r'\\title{.*}', '', self.text)
+            
+            # 解析作者信息
+            for line in self.text.split('\n'):
+                self.author_parser.parse_line(line)
+            
+            # 生成作者HTML
+            authors_html = self.process_authors()
+            
+            # 替换maketitle
+            self.text = re.sub(
+                r'\\maketitle',
+                f'<h1>{self.title}</h1>\n{authors_html}',
+                self.text
+            )
 
     def process_document_content(self):
         
@@ -266,16 +313,24 @@ class Latex2Html:
             self.text = re.sub(pattern, repl, self.text)
 
     def handle_paragraphs(self):
+        block_tags = r'<(h[1-6]|div|section|article|header|footer|ul|ol|li|table|form|nav|aside)'
         paragraphs = self.text.split('\n\n')
         processed_paragraphs = []
+        
         for para in paragraphs:
             para = para.strip()
             if not para:
                 continue
-            if not re.match(r'<h[1-6]([^>]*)>|<ul>|<ol>|<li>|<table([^>]*)>', para):  
-                para = f'<p>{para}</p>'
-            processed_paragraphs.append(para)
-        self.text = '\n\n'.join(processed_paragraphs).replace('<p></p>', '\n')
+            
+            # 检查是否已包含块级标签或为空段落
+            if re.match(block_tags, para, re.IGNORECASE) or not para:
+                processed_paragraphs.append(para)
+            else:
+                processed_paragraphs.append(f'<p>{para}</p>')
+        
+        self.text = '\n\n'.join(processed_paragraphs)
+        # 清理空段落
+        self.text = re.sub(r'<p>\s*</p>', '', self.text)
 
     def escape_remaining_text(self):
         parts = []
@@ -287,6 +342,10 @@ class Latex2Html:
         self.text = ''.join(parts)
 
     def cleanup(self):
+        #self.text = re.sub(r'\\author(\[[^\]]*\])?{.*?}', '', self.text, flags=re.DOTALL)
+        #self.text = re.sub(r'\\affil{.*?}', '', self.text, flags=re.DOTALL)
+        #self.text = re.sub(r'\\date{.*?}', '', self.text, flags=re.DOTALL)
+        
         self.text = re.sub(r'\\[a-zA-Z]+{.*?}', '', self.text)
         self.text = re.sub(r'\n\s*\n', '\n', self.text)
         self.text = re.sub(r'<p>\s*</p>', '\n', self.text)
