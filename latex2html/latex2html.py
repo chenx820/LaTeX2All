@@ -27,7 +27,6 @@ class Latex2Html:
             'abstract': self.handle_abstract,
             'figure': self.handle_figure,
             'algorithm': self.handle_algorithm,
-            #'table': self.handle_tables,
         }
         
         self.idle_handlers = [
@@ -211,37 +210,6 @@ class Latex2Html:
 
         return '\n'.join(table_html)
 
-
-    def handle_table(self, content, starred=False):
-        content = html.unescape(content)
-        content = re.sub(r'\[.*?\]', '\n', content)
-        content = re.sub(r'\{.*?\}', '\n', content)
-        content = re.sub(r'\\begin', '\n', content)
-        content = re.sub(r'\\end', '\n', content)
-        content = re.sub(r'\\hline', '\n', content)
-        content = re.sub(r'\\caption', '\n', content)
-        rows = content.split("\\\\")
-        table_html = ['<table style="margin:auto;">']
-        column_count = None
-        for row in rows:
-            print(row)
-            row = row.strip()
-            if not row:
-                continue
-            elif row == r'\hline':
-                if column_count:
-                    table_html.append(f'<tr><td colspan="{column_count}" class="solid-line"></td></tr>')
-                continue
-            row = re.sub(r'\\textbf{(.*?)}', r'<strong>\1</strong>', row)
-            cols = [col.strip().replace("amp;", "") for col in row.split('&')]
-            
-            if column_count is None:
-                column_count = len(cols)
-            
-            table_html.append('<tr>' + ''.join(f'<td>{col}</td>' for col in cols) + '</tr>')
-            
-        table_html.append('</table>')
-        return '\n'.join(table_html)
         
     def process_commands(self):
         # 处理注册的命令
