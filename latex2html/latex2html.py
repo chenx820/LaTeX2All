@@ -35,6 +35,7 @@ class Latex2Html:
             'centering',
             'hline',
             'newpage',
+            'newline',
             'tableofcontents',
         ]
 
