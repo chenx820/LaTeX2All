@@ -19,7 +19,7 @@ def convert():
         if format_type == "html":
             converted_content = convert_latex_to_html(latex_content)
         else:
-            converted_content = "Coming soon!"
+            converted_content = "这个功能还没写出来呢😁Coming soon!"
 
         return jsonify({"result": converted_content})
     except Exception as e:
