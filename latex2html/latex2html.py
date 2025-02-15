@@ -1,6 +1,5 @@
 import re
 import html
-from parser.author import AuthorParser
 
 def extract_latex_content(text, command):
     # Find the position of \author
@@ -59,7 +58,6 @@ class Latex2Html:
         self.script = """
     <script type='text/javascript' async src='https://polyfill.io/v3/polyfill.min.js?features=es6'></script>
     <script type='text/javascript' id='MathJax-script' async src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'></script>"""
-        self.author_parser = AuthorParser()
         self.command_with_required_arg_handlers = {
             'textbf': self.handle_bold,
             'textit': self.handle_italic,
@@ -125,8 +123,6 @@ class Latex2Html:
 
         self.title = extract_latex_content(self.text, 'title')
         self.author = extract_latex_content(self.text, 'author')
-        print(self.title)
-        print(self.author)
 
         self.text = re.sub(
             r'\\maketitle',
