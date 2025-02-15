@@ -2,8 +2,6 @@ import re
 import html
 
 
-
-
 class Latex2Html:
     def __init__(self):
         self.title = ''
