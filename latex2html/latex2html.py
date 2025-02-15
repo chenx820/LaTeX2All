@@ -120,8 +120,8 @@ class Latex2Html:
         #self.author = re.compile(r'\\author(\[[^\]]*\])?{(.*?)}', re.DOTALL).search(self.text).group(2).strip()
         #self.text = re.sub(r'\\author{.*}', '', self.text)
 
-        self.title = extract_latex_content(self.text, 'title')
-        self.author = extract_latex_content(self.text, 'author')
+        self.title = self.extract_latex_content(self.text, 'title')
+        self.author = self.extract_latex_content(self.text, 'author')
 
         self.text = re.sub(
             r'\\maketitle',
