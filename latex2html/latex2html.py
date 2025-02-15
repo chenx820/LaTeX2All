@@ -125,7 +125,7 @@ class Latex2Html:
 
         self.text = re.sub(
             r'\\maketitle',
-            f'<h1>{self.title}</h1>\n{self.author.replace("\\", "")}',
+            f"<h1>{self.title}</h1>\n{self.author.replace('\\', '')}",
             self.text
         )
 
