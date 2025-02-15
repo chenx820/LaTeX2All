@@ -1,52 +1,7 @@
 import re
 import html
 
-def extract_latex_content(text, command):
-    # Find the position of \author
-    start = text.find(rf'\{command}')
-    if start == -1:
-        return None
-    current_pos = start + len(rf'\{command}')
-    
-    # Skip any whitespace characters
-    while current_pos < len(text) and text[current_pos].isspace():
-        current_pos += 1
-    
-    # Check for and skip optional parameter in brackets
-    if current_pos < len(text) and text[current_pos] == '[':
-        bracket_depth = 1
-        current_pos += 1
-        while current_pos < len(text) and bracket_depth > 0:
-            if text[current_pos] == '[':
-                bracket_depth += 1
-            elif text[current_pos] == ']':
-                bracket_depth -= 1
-            current_pos += 1
-        # Skip whitespace after optional parameter
-        while current_pos < len(text) and text[current_pos].isspace():
-            current_pos += 1
-    
-    # Now look for the opening brace of the mandatory parameter
-    if current_pos >= len(text) or text[current_pos] != '{':
-        return None  # invalid syntax, no opening brace found
-    
-    current_pos += 1  # move past the '{'
-    start_author = current_pos
-    balance = 1  # already inside the first brace
-    
-    # Traverse to find the matching closing brace
-    while current_pos < len(text) and balance > 0:
-        if text[current_pos] == '{':
-            balance += 1
-        elif text[current_pos] == '}':
-            balance -= 1
-        current_pos += 1
-    
-    if balance != 0:
-        return None  # unbalanced braces
-    
-    end_author = current_pos - 1  # exclude the closing '}'
-    return text[start_author:end_author]
+
 
 
 class Latex2Html:
@@ -94,6 +49,52 @@ class Latex2Html:
         self.process_math()
         return self.text
     
+    def extract_latex_content(self, text, command):
+        # Find the position of \author
+        start = text.find(rf'\{command}')
+        if start == -1:
+            return None
+        current_pos = start + len(rf'\{command}')
+        
+        # Skip any whitespace characters
+        while current_pos < len(text) and text[current_pos].isspace():
+            current_pos += 1
+        
+        # Check for and skip optional parameter in brackets
+        if current_pos < len(text) and text[current_pos] == '[':
+            bracket_depth = 1
+            current_pos += 1
+            while current_pos < len(text) and bracket_depth > 0:
+                if text[current_pos] == '[':
+                    bracket_depth += 1
+                elif text[current_pos] == ']':
+                    bracket_depth -= 1
+                current_pos += 1
+            # Skip whitespace after optional parameter
+            while current_pos < len(text) and text[current_pos].isspace():
+                current_pos += 1
+        
+        # Now look for the opening brace of the mandatory parameter
+        if current_pos >= len(text) or text[current_pos] != '{':
+            return None  # invalid syntax, no opening brace found
+        
+        current_pos += 1  # move past the '{'
+        start_author = current_pos
+        balance = 1  # already inside the first brace
+        
+        # Traverse to find the matching closing brace
+        while current_pos < len(text) and balance > 0:
+            if text[current_pos] == '{':
+                balance += 1
+            elif text[current_pos] == '}':
+                balance -= 1
+            current_pos += 1
+        
+        if balance != 0:
+            return None  # unbalanced braces
+        
+        end_author = current_pos - 1  # exclude the closing '}'
+        return text[start_author:end_author]
 
     def parse_latex(self):
         self.process_title()
