@@ -2,17 +2,65 @@ import re
 import html
 from parser.author import AuthorParser
 
+def extract_latex_content(text, command):
+    # Find the position of \author
+    start = text.find(rf'\{command}')
+    if start == -1:
+        return None
+    current_pos = start + len(rf'\{command}')
+    
+    # Skip any whitespace characters
+    while current_pos < len(text) and text[current_pos].isspace():
+        current_pos += 1
+    
+    # Check for and skip optional parameter in brackets
+    if current_pos < len(text) and text[current_pos] == '[':
+        bracket_depth = 1
+        current_pos += 1
+        while current_pos < len(text) and bracket_depth > 0:
+            if text[current_pos] == '[':
+                bracket_depth += 1
+            elif text[current_pos] == ']':
+                bracket_depth -= 1
+            current_pos += 1
+        # Skip whitespace after optional parameter
+        while current_pos < len(text) and text[current_pos].isspace():
+            current_pos += 1
+    
+    # Now look for the opening brace of the mandatory parameter
+    if current_pos >= len(text) or text[current_pos] != '{':
+        return None  # invalid syntax, no opening brace found
+    
+    current_pos += 1  # move past the '{'
+    start_author = current_pos
+    balance = 1  # already inside the first brace
+    
+    # Traverse to find the matching closing brace
+    while current_pos < len(text) and balance > 0:
+        if text[current_pos] == '{':
+            balance += 1
+        elif text[current_pos] == '}':
+            balance -= 1
+        current_pos += 1
+    
+    if balance != 0:
+        return None  # unbalanced braces
+    
+    end_author = current_pos - 1  # exclude the closing '}'
+    return text[start_author:end_author]
+
 
 class Latex2Html:
     def __init__(self):
         self.title = ''
+        self.author = ''
         self.text = ''
         self.protected_equations = {}
         self.script = """
     <script type='text/javascript' async src='https://polyfill.io/v3/polyfill.min.js?features=es6'></script>
     <script type='text/javascript' id='MathJax-script' async src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'></script>"""
         self.author_parser = AuthorParser()
-        self.command_handlers = {
+        self.command_with_required_arg_handlers = {
             'textbf': self.handle_bold,
             'textit': self.handle_italic,
             'section': self.handle_section,
@@ -23,7 +71,7 @@ class Latex2Html:
             'ref': self.handle_ref,
         }
         
-        self.environment_handlers = {
+        self.environment_block_handlers = {
             'enumerate': self.handle_enumerate,
             'itemize': self.handle_itemize,
             'abstract': self.handle_abstract,
@@ -31,18 +79,16 @@ class Latex2Html:
             'algorithm': self.handle_algorithm,
         }
         
-        self.idle_handlers = [
-            'maketitle',
-            'centering',
-            'hline',
-            'newpage',
-            'newline',
-            'tableofcontents',
-        ]
+        self.standalone_command_handlers = {
+            'centering': self.remove_command,
+            'hline': self.remove_command,
+            'newpage': self.remove_command,
+            'newline': self.remove_command,
+            'tableofcontents': self.remove_command,
+        }
 
     def convert(self, latex_content):
         self.text = latex_content
-        self.process_title()
         self.process_comments()
         self.protect_equations()
         self.parse_latex()
@@ -50,36 +96,15 @@ class Latex2Html:
         self.process_math()
         return self.text
     
-    def process_authors(self):
-        authors_html = []
-        authors, date = self.author_parser.finalize()
-        
-        for author in authors:
-            affils = [f'<i class="affiliation"><small>{a}</small></i>' 
-                     for a in author['affils']]
-            affils_html = '<br />\n'.join(affils)
-            authors_html.append(f"""
-  <div class="author">
-    <strong>{author['name']}</strong><br />
-    {affils_html}
-  </div>""")
-        
-        date_html = f'<div class="date"><small>{date}</small></div>' if date else ''
-        authors_str = '\n'.join(authors_html)
-        return f"""
-    <div class="author-list">
-      {authors_str}
-    </div>
-    {date_html}"""
-
-
 
     def parse_latex(self):
+        self.process_title()
         document_match = re.search(r'\\begin{document}(.*)\\end{document}', self.text, flags=re.DOTALL)
         if document_match:
             self.text = document_match.group(1)
             self.process_document_content()
             self.wrap_html()
+        
 
     def wrap_html(self):
         self.text = f"""<!DOCTYPE html>
@@ -94,36 +119,36 @@ class Latex2Html:
 </html>"""
 
     def process_title(self):
-        title_match = re.search(r'\\title{(.*)}', self.text)
-        if title_match:
-            self.title = title_match.group(1).strip()
-            self.text = re.sub(r'\\title{.*}', '', self.text)
-            
-            # 解析作者信息
-            for line in self.text.split('\n'):
-                self.author_parser.parse_line(line)
-            
-            # 生成作者HTML
-            authors_html = self.process_authors()
-            
-            # 替换maketitle
-            self.text = re.sub(
-                r'\\maketitle',
-                f'<h1>{self.title}</h1>\n{authors_html}',
-                self.text
-            )
+
+        #self.author = re.compile(r'\\author(\[[^\]]*\])?{(.*?)}', re.DOTALL).search(self.text).group(2).strip()
+        #self.text = re.sub(r'\\author{.*}', '', self.text)
+
+        self.title = extract_latex_content(self.text, 'title')
+        self.author = extract_latex_content(self.text, 'author')
+        print(self.title)
+        print(self.author)
+
+        self.text = re.sub(
+            r'\\maketitle',
+            f'<h1>{self.title}</h1>\n{self.author.replace("\\", "")}',
+            self.text
+        )
 
     def process_document_content(self):
         
-        self.process_environments()
         self.process_commands()
         self.handle_tables()
         
         self.handle_paragraphs()
         #self.escape_remaining_text()
-        self.process_idle_conmmands()
         self.replace_special_chars()
         self.cleanup()
+        
+    def process_commands(self):
+        self.process_environment_block()
+        self.process_command_with_required_arg()
+        self.process_standalone_command()
+        
         
     def process_math(self):
         self.text = re.sub(r'\\\((.*?)\\\)', r'<span class="math">\\(\1\\)</span>', self.text)
@@ -157,8 +182,8 @@ class Latex2Html:
         self.text = self.text.replace('\\%', '%')
 
     
-    def process_environments(self):
-        for environment, handler in self.environment_handlers.items():
+    def process_environment_block(self):
+        for environment, handler in self.environment_block_handlers.items():
             env_pattern = re.compile(
                 rf'\\begin{{{environment}\*?}}(.*?)\\end{{{environment}\*?}}',
                 re.DOTALL
@@ -257,10 +282,10 @@ class Latex2Html:
 
         return '\n'.join(table_html)
 
-        
-    def process_commands(self):
+    
+    def process_command_with_required_arg(self):
         # 处理注册的命令
-        for command, handler in self.command_handlers.items():
+        for command, handler in self.command_with_required_arg_handlers.items():
             star_pattern = re.compile(rf'~?\\{command}\*?{{(.*?)}}', re.DOTALL)
 
             while True:
@@ -298,12 +323,24 @@ class Latex2Html:
         return f'<a href="#{content}">{content}</a>'
 
     
-    def process_idle_conmmands(self):
-        # 处理注册的命令
-        for idle in self.idle_handlers:
-            self.text = re.sub(rf'\\{idle}', '', self.text)
-                
+    def process_standalone_command(self):
+        for command, handler in self.standalone_command_handlers.items():
+            # 匹配 \command{...} 或 \command*{...}
+            pattern = re.compile(rf'\\{command}', re.DOTALL)
+            
+            while True:
+                match = pattern.search(self.text)
+                if not match:
+                    break
 
+                full_match = match.group(0)  # 整个匹配项，例如 `\newline`
+                replacement = handler(full_match, starred='*' in full_match)
+                self.text = self.text.replace(full_match, replacement)
+
+                
+    def remove_command(self, content, starred=False):
+        return ''
+                
     def replace_special_chars(self):
         replacements = [
             (r'``', '“'), (r"''", '”'), 
@@ -313,7 +350,7 @@ class Latex2Html:
             self.text = re.sub(pattern, repl, self.text)
 
     def handle_paragraphs(self):
-        block_tags = r'<(h[1-6]|div|section|article|header|footer|ul|ol|li|table|form|nav|aside)'
+        block_tags = r'<(h[1-6]|div|section|article|header|footer|ul|ol|li|table|form|nav|aside|section)'
         paragraphs = self.text.split('\n\n')
         processed_paragraphs = []
         
@@ -342,16 +379,11 @@ class Latex2Html:
         self.text = ''.join(parts)
 
     def cleanup(self):
-        #self.text = re.sub(r'\\author(\[[^\]]*\])?{.*?}', '', self.text, flags=re.DOTALL)
-        #self.text = re.sub(r'\\affil{.*?}', '', self.text, flags=re.DOTALL)
-        #self.text = re.sub(r'\\date{.*?}', '', self.text, flags=re.DOTALL)
-        
-        self.text = re.sub(r'\\[a-zA-Z]+{.*?}', '', self.text)
+        self.text = re.sub(r'\\[a-zA-Z]+(?:\[[^\]]*\])?\{[^\}]*\}', '', self.text)
+        self.text = re.sub(r'\\', '', self.text)
         self.text = re.sub(r'\n\s*\n', '\n', self.text)
         self.text = re.sub(r'<p>\s*</p>', '\n', self.text)
         
-
-
 
 def convert_latex_to_html(latex_content):
     converter = Latex2Html()
