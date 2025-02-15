@@ -122,10 +122,11 @@ class Latex2Html:
 
         self.title = self.extract_latex_content(self.text, 'title')
         self.author = self.extract_latex_content(self.text, 'author')
+        self.author = self.author.replace('\\', '')
 
         self.text = re.sub(
             r'\\maketitle',
-            f"<h1>{self.title}</h1>\n{self.author.replace('\\', '')}",
+            rf"<h1>{self.title}</h1>\n{self.author}",
             self.text
         )
 
